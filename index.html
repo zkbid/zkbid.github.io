@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+  <title>服务费计算器-正开招标</title>
+
+  <script src="https://cn.vuejs.org/js/vue.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="row justify-content-md-center">
+    <div class="col-md-auto text-center">
+      <h3 class="mb-4 mt-3">正开招标-服务费计算</h3>
+      <div id="app">
+      <div class="form-check form-check-inline">
+      <input class="form-check-input" type="radio" value="cargo" v-model="ptype">
+      <label class="form-check-label" for="cargo">货物</label>
+      </div>
+      <div class="form-check form-check-inline">
+      <input class="form-check-input" type="radio" value="construction" v-model="ptype">
+      <label class="form-check-label" for="construction">工程</label>
+      </div>
+      <div class="form-check form-check-inline">
+      <input class="form-check-input" type="radio" value="service" v-model="ptype">
+      <label class="form-check-label" for="service">服务</label>
+      </div>
+      <div class="input-group input-group-lg mb-3 mt-3">
+        <input class="form-control" type="text" v-model.number.trim="bid_price" placeholder="输入中标金额(单位:万元)">
+        <div class="input-group-append">
+          <span class="input-group-text">万元</span>
+        </div> 
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5>{{ result }}<span v-show="unit">元</span></h5>
+        </div>
+      </div>
+      </div>
+      <p class="mt-4 mb-3 text-muted">正开招标 © 2020</p>
+    </div>
+  </div>
+  </div>
+  
+  <script type="text/javascript">
+    const rateCargo = {
+      mil1: 150,
+      vmil1: 15000,
+
+      mil5: 110,
+      vmil5: 59000,
+
+      mil10: 80,
+      vmil10: 99000,
+
+      mil50: 50,
+      vmil50: 299000,
+
+      bil1: 25,
+      vbil1: 424000,
+
+      bil5: 5,
+      vbil5: 624000,
+
+      bil10: 3.5,
+      vbil10: 799000,
+
+      bil50: 0.8,
+      vbil50: 1119000,
+
+      bil100: 0.6,
+      vbil100: 1419000,
+
+      bil_end: 0.4
+    }
+
+    const rateConst = {
+      mil1: 100,
+      vmil1: 10000,
+
+      mil5: 70,
+      vmil5: 38000,
+
+      mil10: 55,
+      vmil10: 65500,
+
+      mil50: 35,
+      vmil50: 205500,
+
+      bil1: 20,
+      vbil1: 305500,
+
+      bil5: 5,
+      vbil5: 505500,
+
+      bil10: 3.5,
+      vbil10: 680500,
+
+      bil50: 0.8,
+      vbil50: 1000500,
+
+      bil100: 0.6,
+      vbil100: 1300500,
+
+      bil_end: 0.4
+    }
+
+    const rateService = {
+      mil1: 150,
+      vmil1: 15000,
+
+      mil5: 80,
+      vmil5: 47000,
+
+      mil10: 45,
+      vmil10: 69500,
+
+      mil50: 25,
+      vmil50: 169500,
+
+      bil1: 10,
+      vbil1: 219500,
+
+      bil5: 5,
+      vbil5: 419500,
+
+      bil10: 3.5,
+      vbil10: 594500,
+
+      bil50: 0.8,
+      vbil50: 914500,
+
+      bil100: 0.6,
+      vbil100: 1214500,
+
+      bil_end: 0.4
+    }
+
+    function core(bp, rate) {
+      if (bp <= 0) {
+        return "请输入正确金额！"
+      } else if (bp > 0 && bp <= 100) {
+        return (bp * rate.mil1).toFixed(2)
+      } else if (bp > 100 && bp <= 500) {
+        return ((bp - 100) * rate.mil5 + rate.vmil1).toFixed(2)
+      } else if (bp > 500 && bp <= 1000) {
+        return ((bp - 500) * rate.mil10 + rate.vmil5).toFixed(2)
+      } else if (bp > 1000 && bp <= 5000) {
+        return ((bp - 1000) * rate.mil50 + rate.vmil10).toFixed(2)
+      } else if (bp > 5000 && bp <= 10000) {
+        return ((bp - 5000) * rate.bil1 + rate.vmil50).toFixed(2)
+      } else if (bp > 10000 && bp <= 50000) {
+        return ((bp - 10000) * rate.bil5 + rate.vbil1).toFixed(2)
+      } else if (bp > 50000 && bp <= 100000) {
+        return ((bp - 50000) * rate.bil10 + rate.vbil5).toFixed(2)
+      } else if (bp > 100000 & bp <= 500000) {
+        return ((bp - 100000) * rate.bil50 + rate.vbil10).toFixed(2)
+      } else if (bp > 500000 && bp <= 1000000) {
+        return ((bp - 500000) * rate.bil100 + rate.vbil50).toFixed(2)
+      } else if (bp > 1000000) {
+        return ((bp - 1000000) * rate.bil_end + rate.vbil100).toFixed(2)
+      } else {
+        return "请输入数字！"
+      }
+    }
+
+    new Vue({
+      el: '#app',
+      data: {
+        ptype: '',
+        bid_price: '',
+      },
+      computed: {
+        result: function() {
+          switch(this.ptype) {
+            case "cargo":
+              return core(this.bid_price, rateCargo);
+              break;
+            case "construction":
+              return core(this.bid_price, rateConst);
+              break;
+            case "service":
+              return core(this.bid_price, rateService);
+              break;
+            default:
+              return "请选择项目类型!"
+          }
+        },
+        unit: function() {
+          if (isNaN(this.result)) {
+            return false
+          } else {
+            return true
+          }
+        }
+      }      
+    })
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+</body>
+</html>
