@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>正开招标专家抽取系统</title>
+  <!-- CSS -->
+  <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.2/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+  <style>
+    .error {
+      color: red;
+    }
+    .message {
+      color: green;
+    }
+    .modal-content {
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="container mt-5">
+    <h1 class="text-center mb-4">正开招标专家抽取系统</h1>
+    <div class="form-group">
+      <label for="file">选择专家库文件：</label>
+      <input type="file" id="file" class="form-control-file" accept=".csv" @change="handleFileUpload">
+    </div>
+    <div v-if="error" class="alert alert-danger">{{ error }}</div>
+    <div v-if="message" class="alert alert-success">{{ message }}</div>
+    <div v-if="items.length > 0" class="form-group">
+      <label for="quantity">抽取数量：</label>
+      <input type="number" id="quantity" v-model.number="quantity" class="form-control">
+    </div>
+    <div v-if="types.length > 0" class="form-group">
+      <label for="type">选择类型：</label>
+      <select id="type" v-model="selectedType" class="form-control">
+        <option value="">全部</option>
+        <option v-for="type in types" :value="type">{{ type }}</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <button @click="pickRandom" class="btn btn-primary" :disabled="items.length === 0">抽取</button>
+      <button @click="reset" class="btn btn-secondary" :disabled="items.length === 0">重置</button>
+      <button @click="saveResults" class="btn btn-success" :disabled="pickedItems.length === 0">保存结果</button>
+      <button @click="viewHistory" class="btn btn-info" :disabled="history.length === 0">查看历史</button>
+    </div>
+    <table v-if="pickedItems.length > 0" class="table table-bordered">
+      <thead class="thead-light">
+        <tr>
+          <th>姓名</th>
+          <th>身份证号</th>
+          <th>类型</th>
+          <th>电话</th>
+          <th>工作单位</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in pickedItems" :key="item.idNumber">
+          <td>{{ item.name }}</td>
+          <td>{{ item.idNumber }}</td>
+          <td>{{ item.type }}</td>
+          <td>{{ item.phone }}</td>
+          <td>{{ item.workUnit }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- History Modal -->
+    <div v-if="showHistory" class="modal fade show" tabindex="-1" role="dialog" style="display: block;">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">抽取历史记录</h5>
+            <button type="button" class="close" @click="showHistory = false" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-bordered">
+              <thead class="thead-light">
+                <tr>
+                  <th>抽取时间</th>
+                  <th>姓名</th>
+                  <th>身份证号</th>
+                  <th>类型</th>
+                  <th>电话</th>
+                  <th>工作单位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="record in history" :key="record.timestamp + record.idNumber">
+                  <td>{{ record.timestamp }}</td>
+                  <td>{{ record.name }}</td>
+                  <td>{{ record.idNumber }}</td>
+                  <td>{{ record.type }}</td>
+                  <td>{{ record.phone }}</td>
+                  <td>{{ record.workUnit }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showHistory = false">关闭</button>
+            <button type="button" class="btn btn-primary" @click="exportHistory">导出历史</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mt-4 mb-3 text-muted">正开招标 © 2024</p>
+  </div>
+
+  <!-- jQuery and JavaScript Bundle with Popper -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.slim.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.bundle.min.js" integrity="sha384-7ymO4nGrkm372HoSbq1OY2DP4pEZnMiA+E0F3zPr+JQQtQ82gQ1HPY3QIVtztVua" crossorigin="anonymous"></script>
+
+  <script src="./vue.min.js"></script>
+  
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        quantity: 1,
+        selectedType: '',
+        items: [],
+        pickedItems: [],
+        types: [],
+        originalItems: [],
+        error: '',
+        message: '',
+        history: [],
+        showHistory: false
+      },
+      created() {
+        this.loadHistory();
+      },
+      methods: {
+        handleFileUpload(event) {
+          this.error = '';
+          this.message = '';
+          const file = event.target.files[0];
+          if (file) {
+            if (file.type !== 'text/csv') {
+              this.error = '请选择CSV格式的文件。';
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const content = e.target.result;
+              this.parseCSV(content);
+            };
+            reader.readAsText(file);
+          }
+        },
+        parseCSV(content) {
+          const rows = content.trim().split('\n');
+          if (rows.length === 0 || rows[0].split(',').length !== 6) {
+            this.error = 'CSV文件格式不正确，请检查文件内容。';
+            return;
+          }
+          this.items = rows.map(row => {
+            const [index, name, idNumber, type, phone, workUnit] = row.split(',').map(item => item.trim());
+            return { name, idNumber, type, phone, workUnit };
+          });
+          this.types = [...new Set(this.items.map(item => item.type))];
+          this.originalItems = [...this.items];  // Save the original items
+          this.message = '专家库文件加载成功。';
+        },
+        pickRandom() {
+          if (this.quantity <= 0) {
+            this.error = '抽取数量必须为正数。';
+            return;
+          }
+
+          let filteredItems = this.items;
+          if (this.selectedType !== '') {
+            filteredItems = this.items.filter(item => item.type === this.selectedType);
+          }
+
+          const availableQuantity = Math.min(this.quantity, filteredItems.length);
+
+          this.pickedItems = [];
+          for (let i = 0; i < availableQuantity; i++) {
+            const randomIndex = Math.floor(Math.random() * filteredItems.length);
+            const randomItem = filteredItems.splice(randomIndex, 1)[0];
+            this.pickedItems.push(randomItem);
+          }
+
+          // Remove picked items from the main items list to avoid duplicates in future draws
+          this.items = this.items.filter(item => !this.pickedItems.includes(item));
+
+          // Save the pick result to history
+          this.saveHistory();
+        },
+        reset() {
+          this.items = [...this.originalItems];
+          this.pickedItems = [];
+          this.selectedType = '';
+          this.quantity = 1;
+          this.error = '';
+          this.message = '';
+        },
+        saveResults() {
+          const csvContent = [
+            ["姓名", "身份证号", "类型", "电话", "工作单位"],
+            ...this.pickedItems.map(item => [item.name, item.idNumber, item.type, item.phone, item.workUnit])
+          ].map(e => e.join(",")).join("\n");
+
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.setAttribute("href", url);
+          link.setAttribute("download", "抽取结果.csv");
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        },
+        saveHistory() {
+          const timestamp = new Date().toLocaleString();
+          const historyRecord = this.pickedItems.map(item => ({
+            timestamp,
+            ...item
+          }));
+          const existingHistory = JSON.parse(sessionStorage.getItem('pickHistory')) || [];
+          const updatedHistory = existingHistory.concat(historyRecord);
+          sessionStorage.setItem('pickHistory', JSON.stringify(updatedHistory));
+          this.loadHistory();
+        },
+        loadHistory() {
+          this.history = JSON.parse(sessionStorage.getItem('pickHistory')) || [];
+        },
+        viewHistory() {
+          this.showHistory = true;
+        },
+        exportHistory() {
+          const csvContent = [
+            ["抽取时间", "姓名", "身份证号", "类型", "电话", "工作单位"],
+            ...this.history.map(record => [
+              record.timestamp,
+              record.name,
+              record.idNumber,
+              record.type,
+              record.phone,
+              record.workUnit
+            ])
+          ].map(e => e.join(",")).join("\n");
+
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.setAttribute("href", url);
+          link.setAttribute("download", "抽取历史记录.csv");
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
